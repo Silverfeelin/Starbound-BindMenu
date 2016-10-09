@@ -1,0 +1,91 @@
+[
+  {
+    "op": "add",
+    "path": "/animatedParts/parts",
+    "value": {
+      "menu": {
+        "partStates": {
+          "menu": {
+            "on": {
+              "properties": {
+                "centered": true,
+                "transformationGroups" : ["menu"],
+                "zLevel" : 10,
+                "image": "/interface/streamingvideo/icon.png?replace;FF00F6=00000000"
+              }
+            }
+          }
+        }
+      },
+      "menuHighlight": {
+        "partStates": {
+          "menuHighlight": {
+            "on": {
+              "properties": {
+                "centered": true,
+                "transformationGroups" : ["menuHighlight"],
+                "zLevel" : 11,
+                "image": "/interface/streamingvideo/checkboxnocheck.png?replace;000000ff=00000000"
+              }
+            }
+          }
+        }
+      },
+      "menuPause": {
+        "partStates": {
+          "menuPause": {
+            "on": {
+              "properties": {
+                "centered": true,
+                "offset": [0, 4],
+                "zLevel" : 12,
+                "image": "/interface/streamingvideo/buttonover.png?replace;000000ff=00000000;C1C1C5=00000000;939395=00000000;515457=00000000"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/transformationGroups",
+    "value": {
+      "menuHighlight": {},
+      "menu": {}
+    }
+  },
+  {
+    "op": "add",
+    "path": "/animatedParts/stateTypes/menu",
+    "value": {
+      "default": "off",
+      "states": {
+        "off": {},
+        "on": {}
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/animatedParts/stateTypes/menuHighlight",
+    "value": {
+      "default": "off",
+      "states": {
+        "off": {},
+        "on": {}
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/animatedParts/stateTypes/menuPause",
+    "value": {
+      "default": "off",
+      "states": {
+        "off": {},
+        "on": {}
+      }
+    }
+  }
+]
