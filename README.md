@@ -1,7 +1,7 @@
 # Starbound Bind Menu
 The Bind Menu is a tech mod that allows you to bind functions to regions on an interface. The interface can be toggled on and off in-game and you can select a region to call the bound functions.
 
--- TODO: Image --
+![](https://raw.githubusercontent.com/Silverfeelin/Starbound-BindMenu/master/readme/blankInterface.png)
 
 ## Contents
 * [Features](#features)
