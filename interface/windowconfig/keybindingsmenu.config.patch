@@ -1,0 +1,12 @@
+[
+  {
+    "op" : "add",
+    "path" : "/keyActions/player/-",
+    "value" : { "label" : "^orange;Bind Menu^reset; Activate", "action" : "PlayerTechAction2" }
+  },
+  {
+    "op" : "add",
+    "path" : "/keyActions/player/-",
+    "value" : { "label" : "^orange;Bind Menu^reset; Other", "action" : "PlayerTechAction3" }
+  }
+]
