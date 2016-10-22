@@ -2,7 +2,7 @@ require "/tech/doubletap.lua"
 
 function init()
   require "/scripts/bindMenu.lua"
-  
+
   self.airDashing = false
   self.dashDirection = 0
   self.dashTimer = 0
@@ -63,7 +63,7 @@ function update(args)
     end
     mcontroller.controlModifiers({jumpingSuppressed = true})
 
-    animator.setFlipped(mcontroller.facingDirection() == -1)    
+    animator.setFlipped(mcontroller.facingDirection() == -1)
 
     self.dashTimer = math.max(0, self.dashTimer - args.dt)
 

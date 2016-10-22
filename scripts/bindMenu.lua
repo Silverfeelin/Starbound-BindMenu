@@ -4,9 +4,14 @@ bm = {}
 bm.config = root.assetJson("/scripts/bindMenu.config")
 
 bm.active = false
+bm.activePosition = nil
+
 bm.queued = function() return #bm.queueCallbacks > 0 end
 bm.pauseShown = false
 bm.queueCallbacks = {}
+
+bm.defaultClock = 30
+bm.clock = 0
 
 bm.regions = {}
 for i=1,bm.config.regions[1] do
@@ -31,15 +36,62 @@ update = function(args)
   bm.showRegions()
 
   local queued = bm.queued()
-  if queued and not bm.pauseShown then
-    animator.setAnimationState("menuPause", "on")
-    bm.pauseShown = true
-  elseif not queued and bm.pauseShown then
-    animator.setAnimationState("menuPause", "off")
-    bm.pauseShown = false
+  if bm.active and bm.countdown() then
+    if queued then
+      world.spawnProjectile(bm.getProjectile(bm.activePosition, true))
+    else
+      world.spawnProjectile(bm.getProjectile(bm.activePosition, false ))
+    end
   end
 
   if bm.active then bm.highlight() end
+end
+
+function bm.getProjectile(pos, showPause)
+  local dir = ""
+  if showPause ~= true then
+    dir = "?replace;000000fe=00000000;463818fe=00000000;6d6330fe=00000000;251c0bfe=00000000;c0cecefe=00000000;edf9f9fe=00000000;d8c4a1fe=00000000;ae946ffe=00000000;705c43fe=00000000"
+  end
+
+  return  "invisibleprojectile",
+        pos or tech.aimPosition(),
+        entity.id(),
+        {0, 0},
+        true,
+        {
+          power = 0,
+          processing= "",
+          damageType = "nodamage",
+          universalDamage = false,
+          timeToLive=0,
+          actionOnReap = {
+            {
+              action = "particle",
+              specification = {
+                type = "textured",
+                image = "/interface/streamingvideo/icon.png?replace;ff00f6=00000000" .. dir,
+                layer = "front",
+                initial = "drift",
+                flippable = false,
+                size = 1,
+                light = {0, 0, 0},
+                timeToLive = 0.5,
+                position = {0, 0},
+                destructionTime = 0
+              }
+            }
+          }
+        }
+end
+
+function bm.countdown()
+  bm.clock = bm.clock - 1
+  if bm.clock <= 0 then
+    bm.clock = bm.defaultClock
+    return true
+  else
+    return false
+  end
 end
 
 --[[
@@ -65,14 +117,8 @@ function bm.toggle(bool)
     bm.active = not bm.active
   end
 
-  if bm.active then
-    animator.setAnimationState("menu", "on")
-    animator.setAnimationState("menuHighlight", "on")
-  else
-    animator.setAnimationState("menu", "off")
-    animator.setAnimationState("menuHighlight", "off")
-  end
-
+  bm.clock = 0
+  bm.activePosition = tech.aimPosition()
   return bm.active
 end
 
@@ -93,6 +139,8 @@ function bm.activate()
       if type(v) == "function" then v() end
     end
     if bm.config.closeOnActivate then bm.toggle(false) end
+  else
+    bm.toggle(false)
   end
 end
 
@@ -123,7 +171,7 @@ function bm.corner(corner)
   if corner:find("bottom") then halfHeight = -halfHeight end
   if corner:find("left") then halfWidth = -halfWidth end
 
-  return {mcontroller.position()[1] + halfWidth, mcontroller.position()[2] + halfHeight}
+  return {bm.activePosition[1] + halfWidth, bm.activePosition[2] + halfHeight}
 end
 
 --[[
@@ -150,6 +198,9 @@ end
 
 bm.prevReg = {-1,-1}
 function bm.highlight()
+  --[[ TODO: Figure out how to highlight without adding projectiles.
+      This code is an artefact from trying to use the .animation to display
+      the menu. It shouldn't be uncommented.
   local reg = bm.getRegion()
   if not reg then
     bm.prevReg = {-1, -1}
@@ -174,6 +225,7 @@ function bm.highlight()
       rely * bm.blockSize[2]
     })
   end
+  ]]
 end
 
 --[[
@@ -181,7 +233,7 @@ end
 ]]
 function bm.showRegions()
   if bm.active then
-    local pos = mcontroller.position()
+    local pos = bm.activePosition
     local width, height = bm.imageBlockSize[1] / 2, bm.imageBlockSize[2] / 2
 
     local bottomLeft = bm.corner("bottomLeft")
@@ -197,11 +249,17 @@ function bm.showRegions()
   end
 end
 
--- Tech bar toggle Keybind.
+--[[
+  Creation of Keybinds for toggling and activating.
+  @see `bindMenu.config`:toggle
+  @see `bindMenu.config`:activate
+]]
 Bind.create(bm.config.toggle, bm.toggle)
 Bind.create(bm.config.activate, bm.activate)
 
--- Load other scripts that can bind regions since the bindMenu is set up.
+--[[
+  Load other scripts that can bind regions since the bindMenu is set up.
+]]
 for _,v in ipairs(bm.config.scripts) do
  require(v)
 end
@@ -209,5 +267,7 @@ end
 -- Sample region; queues a task that spawns money at the cursor on the next activation.
 -- You'll probably want to remove this.
 bm.bind(3,2, function()
-  bm.queue(function() world.spawnItem("money", tech.aimPosition(), 100) end)
+  bm.queue(function()
+    world.spawnItem("money", tech.aimPosition(), 100)
+  end)
 end)
