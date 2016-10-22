@@ -263,11 +263,3 @@ Bind.create(bm.config.activate, bm.activate)
 for _,v in ipairs(bm.config.scripts) do
  require(v)
 end
-
--- Sample region; queues a task that spawns money at the cursor on the next activation.
--- You'll probably want to remove this.
-bm.bind(3,2, function()
-  bm.queue(function()
-    world.spawnItem("money", tech.aimPosition(), 100)
-  end)
-end)
