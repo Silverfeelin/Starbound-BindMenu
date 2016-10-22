@@ -28,6 +28,7 @@ The Wiki covers about everything you need to know and do to set up and use the B
 * Low refresh rate.
  * A projectile is spawned every half a second to prevent performance loss (2Hz).  
  This is done to keep the mod multiplayer-compatible.
+* You'll see other people using a Bind Menu.
 * Probably a bunch more. Report issues on the [Issues page](https://github.com/Silverfeelin/Starbound-BindMenu/issues)!
 
 ## Contributing
