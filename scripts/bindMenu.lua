@@ -113,17 +113,18 @@ end
   Binds a function to the region at [x,y]. Multiple functions can be bound to the same region.
   @param x - Horizontal region index (left to right). Should be between 1 and bm.config.regions[1].
   @param y - Vertical region index (bottom to top). Should be between 1 and bm.config.regions[2].
-  @param func - Function to bind to the given region.
-  @param alt - Table to run through if region is right clicked. Table should include a boolean named ctype and a function named func.
+  @param config - Table to run through. See bind examples @ line ~315
 ]]
-function bm.bind(x, y, func, alt)
-  if not bm.regions[x] or not bm.regions[x][y] then return end
-  table.insert(bm.regions[x][y], func)
-  -- do not add alt table if ctype/func does not exist/is set to false.
-  -- There are potential issues/bugs with this, but it's not much of an issue as long as whoever's using it isn't braindead.
-  if not alt then return end
-  if not alt.ctype or not alt.func then return end
-  table.insert(bm.regions[x][y], alt)
+function bm.bind(x, y, config)
+  if not bm.regions[x] or not bm.regions[x][y] then error("") return end
+  if not config or type(config) ~= "table" then error("bm.bind - config for bm.bind not defined/invalid") return end
+  -- func checks
+  if config.primary and type(config.primary.func) ~= "function" then error("bm.bind - func in primary is invalid/undefined") return end
+  if config.alt and type(config.alt.func) ~= "function" then error("bm.bind - func in alt is invalid/undefined") return end
+  -- enabled checks
+  if config.primary and type(config.primary.enabled) ~= "boolean" then config.primary.enabled = true end
+  if config.alt and type(config.alt.enabled) ~= "boolean" then config.alt.enabled = true end
+  table.insert(bm.regions[x][y], config)
 end
 
 --[[
@@ -147,9 +148,9 @@ end
   Calls the function(s) for the selected region, if any.
   @see bm.getRegion
 ]]
-function bm.activate(alt)
+function bm.activate(rclick)
   -- if alt isn't defined set it to false.
-  alt = alt or false
+  local rclick = rclick or false
 
   if bm.queued() then
     bm.runQueued()
@@ -157,27 +158,17 @@ function bm.activate(alt)
   end
 
   local selection = bm.getRegion()
-  if selection then
-    local res = bm.regions[selection[1]][selection[2]]
-    for _,v in ipairs(res) do
-      -- This is what handles the right click. if "alt" is(somehow) not defined or is false, continue the normal left click function.
-      if type(v) == "function" and not alt then
-        v()
-      else
-        --[[
-        check again if alt exists and this time is true, as well as making sure the current entry is the altclick table
-        (see line 114)
-        (There are better ways to do this, but i did this in like 5 minutes and it's a proof of concept.)
-        checks to make sure ctype exists and is set to true, and checks to make sure v.func exists.
-        If so, run the function inside of the table.(See line 301)
-        ]]--
-        if alt and type(v) == "table" then if v.ctype and v.func then v.func() end end
-        -- What to do if right click but no func/ctype???
+  if not selection then bm.toggle(false) return end
+  local res = bm.regions[selection[1]][selection[2]]
+
+  for _,v in ipairs(res) do
+    if type(v) == "table" then
+      if not rclick and v.primary and v.primary.enabled then
+        v.primary.func()
+      elseif rclick and v.alt and v.alt.enabled then
+        v.alt.func()
       end
     end
-    if bm.config.closeOnActivate then bm.toggle(false) end
-  else
-    bm.toggle(false)
   end
 end
 
@@ -276,30 +267,42 @@ end
 ]]
 function bm.showRegions()
   -- Added a config option to disable showing the regions.
-  if bm.config.showDebug then
+  if bm.config.showDebug and bm.active then
     -- This didn't work if i put them together for some reason. Maybe the config just didn't reload?
-    if bm.active then
-      local pos = bm.activePosition
-      local width, height = bm.imageBlockSize[1] / 2, bm.imageBlockSize[2] / 2
+    local pos = bm.activePosition
+    local width, height = bm.imageBlockSize[1] / 2, bm.imageBlockSize[2] / 2
 
-      local bottomLeft = bm.corner("bottomLeft")
-      local topRight = bm.corner("topRight")
+    local bottomLeft = bm.corner("bottomLeft")
+    local topRight = bm.corner("topRight")
 
-      for i=0,bm.config.regions[1] do
-        world.debugLine({bottomLeft[1] + i * bm.blockSize[1], bottomLeft[2]}, {bottomLeft[1] + i * bm.blockSize[1], topRight[2]}, "green")
-      end
+    for i=0,bm.config.regions[1] do
+      world.debugLine({bottomLeft[1] + i * bm.blockSize[1], bottomLeft[2]}, {bottomLeft[1] + i * bm.blockSize[1], topRight[2]}, "green")
+    end
 
-      for i=0,bm.config.regions[2] do
-        world.debugLine({bottomLeft[1], bottomLeft[2] + i * bm.blockSize[2]}, {topRight[1], bottomLeft[2] + i * bm.blockSize[2]}, "green")
-      end
+    for i=0,bm.config.regions[2] do
+      world.debugLine({bottomLeft[1], bottomLeft[2] + i * bm.blockSize[2]}, {topRight[1], bottomLeft[2] + i * bm.blockSize[2]}, "green")
     end
   end
 end
 
 -- Didn't feel like messing with the way keybinds worked.
-function bm.altactivate()
+function bm.altActivate()
 bm.activate(true)
 end
+
+function coinExample(coins)
+  bm.queue(function()
+  local coins = coins or 100
+
+    for i=1,coins do
+      world.spawnItem("money", {tech.aimPosition()[1] + math.random(0,10), tech.aimPosition()[2] + math.random(0,8)}, math.huge)
+      i = i + 1
+    end
+
+  end)
+  return
+end
+
 
 --[[
   Creation of Keybinds for toggling and activating.
@@ -308,27 +311,23 @@ end
 ]]
 Bind.create(bm.config.toggle, bm.toggle)
 Bind.create(bm.config.activate, bm.activate)
-Bind.create(bm.config.altactivate, bm.altactivate)
+Bind.create(bm.config.altActivate, bm.altActivate)
 
-bm.bind(8,2, function()
-  -- Left click function.
-  bm.queue(function()
-    --Lag-ishinator
-    for i=1,20 do
-      world.spawnItem("money", {tech.aimPosition()[1] + math.random(0,5), tech.aimPosition()[2] + math.random(0,3)}, math.huge)
-      i = i + 1
-    end
-   end)
-end, {ctype = true, func = function()
-  -- Right click function.
-  bm.queue(function()
-    --Laginator
-    for i=1,100 do
-      world.spawnItem("money", {tech.aimPosition()[1] + math.random(0,10), tech.aimPosition()[2] + math.random(0,6)}, math.huge)
-      i = i + 1
-    end
-   end)
-end})
+
+-- Example of valid bind. for functions look @ lines 293 - 307
+
+bm.bind(8,2,
+{
+  primary = {
+    enabled = true,
+    func = function() coinExample(20) end
+  },
+
+  alt = {
+    enabled = true,
+    func = coinExample
+  }
+})
 
 --[[
   Load other scripts that can bind regions since the bindMenu is set up.
