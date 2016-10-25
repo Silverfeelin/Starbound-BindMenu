@@ -1,5 +1,7 @@
 require "/scripts/keybinds.lua"
 
+-- I think i removed all of my personal customizations, but it's possible i missed something. Sorry!
+
 bm = {}
 bm.config = root.assetJson("/scripts/bindMenu.config")
 
@@ -21,6 +23,12 @@ for i=1,bm.config.regions[1] do
   end
 end
 
+--[[
+ I set this and the config back to the old image(plus the pixel icon for the text function) just because it's my preference.
+ I personally find the new image is far too large, ugly(sorry), and takes up too much space on-screen.
+ I was going to make a new image since this was meant for mcontroller position and now its tech pos, but i thought of a new way to make it work through animations, so i'm going to test that first.
+]]--
+
 bm.imageSize = root.imageSize("/interface/streamingvideo/icon.png")
 bm.imageBlockSize = { bm.imageSize[1] / 8, bm.imageSize[2] / 8 }
 bm.blockSize = { bm.imageBlockSize[1] / bm.config.regions[1], bm.imageBlockSize[2] / bm.config.regions[2] }
@@ -40,7 +48,7 @@ update = function(args)
     if queued then
       world.spawnProjectile(bm.getProjectile(bm.activePosition, true))
     else
-      world.spawnProjectile(bm.getProjectile(bm.activePosition, false ))
+      world.spawnProjectile(bm.getProjectile(bm.activePosition, false))
     end
   end
 
@@ -49,11 +57,14 @@ end
 
 function bm.getProjectile(pos, showPause)
   local dir = ""
+  -- Possible to turn the cursor into the pause icon using a similar method? Unsure how the cursor works.
+  -- Maybe take a look at how picking items and such works. Rather than replacing the cursor, it appears alongside it.
   if showPause ~= true then
+    -- If not making the image slightly transparent during normal use, while paused could also be useful.
     dir = "?replace;000000fe=00000000;463818fe=00000000;6d6330fe=00000000;251c0bfe=00000000;c0cecefe=00000000;edf9f9fe=00000000;d8c4a1fe=00000000;ae946ffe=00000000;705c43fe=00000000"
   end
 
-  return  "invisibleprojectile",
+  return "invisibleprojectile",
         pos or tech.aimPosition(),
         entity.id(),
         {0, 0},
@@ -69,10 +80,14 @@ function bm.getProjectile(pos, showPause)
               action = "particle",
               specification = {
                 type = "textured",
+                -- Maybe using a new image, use the replace directive to make the image slightly transparent, so you can see things behind it.
+                -- This would also allow bigger images without everything in the background being blocked out
                 image = "/interface/streamingvideo/icon.png?replace;ff00f6=00000000" .. dir,
                 layer = "front",
                 initial = "drift",
                 flippable = false,
+                -- Set to fullbright so it doesn't turn practically unusable while in a dark area. God that's irritating.
+                fullbright = true,
                 size = 1,
                 light = {0, 0, 0},
                 timeToLive = 0.5,
@@ -99,10 +114,16 @@ end
   @param x - Horizontal region index (left to right). Should be between 1 and bm.config.regions[1].
   @param y - Vertical region index (bottom to top). Should be between 1 and bm.config.regions[2].
   @param func - Function to bind to the given region.
+  @param alt - Table to run through if region is right clicked. Table should include a boolean named ctype and a function named func.
 ]]
-function bm.bind(x, y, func)
+function bm.bind(x, y, func, alt)
   if not bm.regions[x] or not bm.regions[x][y] then return end
   table.insert(bm.regions[x][y], func)
+  -- do not add alt table if ctype/func does not exist/is set to false.
+  -- There are potential issues/bugs with this, but it's not much of an issue as long as whoever's using it isn't braindead.
+  if not alt then return end
+  if not alt.ctype or not alt.func then return end
+  table.insert(bm.regions[x][y], alt)
 end
 
 --[[
@@ -126,7 +147,10 @@ end
   Calls the function(s) for the selected region, if any.
   @see bm.getRegion
 ]]
-function bm.activate()
+function bm.activate(alt)
+  -- if alt isn't defined set it to false.
+  alt = alt or false
+
   if bm.queued() then
     bm.runQueued()
     return
@@ -136,7 +160,20 @@ function bm.activate()
   if selection then
     local res = bm.regions[selection[1]][selection[2]]
     for _,v in ipairs(res) do
-      if type(v) == "function" then v() end
+      -- This is what handles the right click. if "alt" is(somehow) not defined or is false, continue the normal left click function.
+      if type(v) == "function" and not alt then
+        v()
+      else
+        --[[
+        check again if alt exists and this time is true, as well as making sure the current entry is the altclick table
+        (see line 114)
+        (There are better ways to do this, but i did this in like 5 minutes and it's a proof of concept.)
+        checks to make sure ctype exists and is set to true, and checks to make sure v.func exists.
+        If so, run the function inside of the table.(See line 301)
+        ]]--
+        if alt and type(v) == "table" then if v.ctype and v.func then v.func() end end
+        -- What to do if right click but no func/ctype???
+      end
     end
     if bm.config.closeOnActivate then bm.toggle(false) end
   else
@@ -144,6 +181,9 @@ function bm.activate()
   end
 end
 
+-- Instead of a right clicking system for more(practical) functions on one region, there's also potential for a double click system.
+-- For example, when queueing, if another click is done on the same region, start another queue that will run your 2nd function.
+-- If second click is NOT made in the same region, continue with the first function.
 function bm.queue(callback)
   table.insert(bm.queueCallbacks, callback)
 end
@@ -197,6 +237,9 @@ function bm.getRegion()
 end
 
 bm.prevReg = {-1,-1}
+
+-- This (could) be done with alot of replace directives and image editing in conjunction with getRegion.
+-- Very slight, un-noticable changes to the color of each tile and changing their "highlight" using directives.
 function bm.highlight()
   --[[ TODO: Figure out how to highlight without adding projectiles.
       This code is an artefact from trying to use the .animation to display
@@ -232,21 +275,30 @@ end
   Shows the regions in /debug, as long as the tech bar is active.
 ]]
 function bm.showRegions()
-  if bm.active then
-    local pos = bm.activePosition
-    local width, height = bm.imageBlockSize[1] / 2, bm.imageBlockSize[2] / 2
+  -- Added a config option to disable showing the regions.
+  if bm.config.showDebug then
+    -- This didn't work if i put them together for some reason. Maybe the config just didn't reload?
+    if bm.active then
+      local pos = bm.activePosition
+      local width, height = bm.imageBlockSize[1] / 2, bm.imageBlockSize[2] / 2
 
-    local bottomLeft = bm.corner("bottomLeft")
-    local topRight = bm.corner("topRight")
+      local bottomLeft = bm.corner("bottomLeft")
+      local topRight = bm.corner("topRight")
 
-    for i=0,bm.config.regions[1] do
-      world.debugLine({bottomLeft[1] + i * bm.blockSize[1], bottomLeft[2]}, {bottomLeft[1] + i * bm.blockSize[1], topRight[2]}, "green")
-    end
+      for i=0,bm.config.regions[1] do
+        world.debugLine({bottomLeft[1] + i * bm.blockSize[1], bottomLeft[2]}, {bottomLeft[1] + i * bm.blockSize[1], topRight[2]}, "green")
+      end
 
-    for i=0,bm.config.regions[2] do
-      world.debugLine({bottomLeft[1], bottomLeft[2] + i * bm.blockSize[2]}, {topRight[1], bottomLeft[2] + i * bm.blockSize[2]}, "green")
+      for i=0,bm.config.regions[2] do
+        world.debugLine({bottomLeft[1], bottomLeft[2] + i * bm.blockSize[2]}, {topRight[1], bottomLeft[2] + i * bm.blockSize[2]}, "green")
+      end
     end
   end
+end
+
+-- Didn't feel like messing with the way keybinds worked.
+function bm.altactivate()
+bm.activate(true)
 end
 
 --[[
@@ -256,6 +308,27 @@ end
 ]]
 Bind.create(bm.config.toggle, bm.toggle)
 Bind.create(bm.config.activate, bm.activate)
+Bind.create(bm.config.altactivate, bm.altactivate)
+
+bm.bind(8,2, function()
+  -- Left click function.
+  bm.queue(function()
+    --Lag-ishinator
+    for i=1,20 do
+      world.spawnItem("money", {tech.aimPosition()[1] + math.random(0,5), tech.aimPosition()[2] + math.random(0,3)}, math.huge)
+      i = i + 1
+    end
+   end)
+end, {ctype = true, func = function()
+  -- Right click function.
+  bm.queue(function()
+    --Laginator
+    for i=1,100 do
+      world.spawnItem("money", {tech.aimPosition()[1] + math.random(0,10), tech.aimPosition()[2] + math.random(0,6)}, math.huge)
+      i = i + 1
+    end
+   end)
+end})
 
 --[[
   Load other scripts that can bind regions since the bindMenu is set up.
