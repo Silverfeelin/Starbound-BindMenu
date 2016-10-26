@@ -149,10 +149,14 @@ end
   @see bm.getRegion
 ]]
 function bm.activate(rclick)
-  -- if alt isn't defined set it to false.
-  local rclick = rclick or false
+  -- if rclick isn't defined set it to false.
 
   if bm.queued() then
+    -- If queued and right click, cancel queue.
+    if rclick then
+      bm.queueCallbacks = {}
+      return
+    end
     bm.runQueued()
     return
   end
