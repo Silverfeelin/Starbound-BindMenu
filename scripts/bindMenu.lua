@@ -106,7 +106,7 @@ end
     An example configuration can be found near the bottom of the script.
 ]]
 function bm.bind(x, y, config)
-  if not bm.regions[x] or not bm.regions[x][y] then error("") return end
+  if not bm.regions[x] or not bm.regions[x][y] then error("region out of bounds.") return end
   if not config or type(config) ~= "table" then error("`config` is invalid/undefined.") return end
   -- func checks
   if config.primary and type(config.primary.func) ~= "function" then error("`func` in `config.primary` is invalid/undefined.") return end
