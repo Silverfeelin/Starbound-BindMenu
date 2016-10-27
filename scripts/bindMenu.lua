@@ -40,7 +40,7 @@ update = function(args)
     if queued then
       world.spawnProjectile(bm.getProjectile(bm.activePosition, true))
     else
-      world.spawnProjectile(bm.getProjectile(bm.activePosition, false ))
+      world.spawnProjectile(bm.getProjectile(bm.activePosition, false))
     end
   end
 
@@ -53,7 +53,7 @@ function bm.getProjectile(pos, showPause)
     dir = "?replace;000000fe=00000000;463818fe=00000000;6d6330fe=00000000;251c0bfe=00000000;c0cecefe=00000000;edf9f9fe=00000000;d8c4a1fe=00000000;ae946ffe=00000000;705c43fe=00000000"
   end
 
-  return  "invisibleprojectile",
+  return "invisibleprojectile",
         pos or tech.aimPosition(),
         entity.id(),
         {0, 0},
@@ -73,6 +73,7 @@ function bm.getProjectile(pos, showPause)
                 layer = "front",
                 initial = "drift",
                 flippable = false,
+                fullbright = true,
                 size = 1,
                 light = {0, 0, 0},
                 timeToLive = 0.5,
@@ -98,11 +99,22 @@ end
   Binds a function to the region at [x,y]. Multiple functions can be bound to the same region.
   @param x - Horizontal region index (left to right). Should be between 1 and bm.config.regions[1].
   @param y - Vertical region index (bottom to top). Should be between 1 and bm.config.regions[2].
-  @param func - Function to bind to the given region.
+  @param config - Bind arguments. Expected format:
+    { primary = { func = function, enabled = boolean }, alt = { func = function, enabled = boolean } }
+    You can leave out `enabled` (defaults to true). You can leave out `alt` or `primary` entirely.
+    This allows you to bind a function to the left mouse button, right mouse button or both.
+    An example configuration can be found near the bottom of the script.
 ]]
-function bm.bind(x, y, func)
-  if not bm.regions[x] or not bm.regions[x][y] then return end
-  table.insert(bm.regions[x][y], func)
+function bm.bind(x, y, config)
+  if not bm.regions[x] or not bm.regions[x][y] then error("region out of bounds.") return end
+  if not config or type(config) ~= "table" then error("`config` is invalid/undefined.") return end
+  -- func checks
+  if config.primary and type(config.primary.func) ~= "function" then error("`func` in `config.primary` is invalid/undefined.") return end
+  if config.alt and type(config.alt.func) ~= "function" then error("`func` in `config.alt` is invalid/undefined.") return end
+  -- enabled checks
+  if config.primary and type(config.primary.enabled) ~= "boolean" then config.primary.enabled = true end
+  if config.alt and type(config.alt.enabled) ~= "boolean" then config.alt.enabled = true end
+  table.insert(bm.regions[x][y], config)
 end
 
 --[[
@@ -126,21 +138,29 @@ end
   Calls the function(s) for the selected region, if any.
   @see bm.getRegion
 ]]
-function bm.activate()
+function bm.activate(rclick)
   if bm.queued() then
+    -- If queued and right click, cancel queue.
+    if rclick then
+      bm.queueCallbacks = {}
+      return
+    end
     bm.runQueued()
     return
   end
 
   local selection = bm.getRegion()
-  if selection then
-    local res = bm.regions[selection[1]][selection[2]]
-    for _,v in ipairs(res) do
-      if type(v) == "function" then v() end
+  if not selection then bm.toggle(false) return end
+  local res = bm.regions[selection[1]][selection[2]]
+
+  for _,v in ipairs(res) do
+    if type(v) == "table" then
+      if not rclick and v.primary and v.primary.enabled then
+        v.primary.func()
+      elseif rclick and v.alt and v.alt.enabled then
+        v.alt.func()
+      end
     end
-    if bm.config.closeOnActivate then bm.toggle(false) end
-  else
-    bm.toggle(false)
   end
 end
 
@@ -197,6 +217,7 @@ function bm.getRegion()
 end
 
 bm.prevReg = {-1,-1}
+
 function bm.highlight()
   --[[ TODO: Figure out how to highlight without adding projectiles.
       This code is an artefact from trying to use the .animation to display
@@ -229,10 +250,10 @@ function bm.highlight()
 end
 
 --[[
-  Shows the regions in /debug, as long as the tech bar is active.
+  Shows the regions in /debug, as long as the tech bar is active and showDebug is enabled in the config.
 ]]
 function bm.showRegions()
-  if bm.active then
+  if bm.config.showDebug and bm.active then
     local pos = bm.activePosition
     local width, height = bm.imageBlockSize[1] / 2, bm.imageBlockSize[2] / 2
 
@@ -249,6 +270,10 @@ function bm.showRegions()
   end
 end
 
+function bm.altActivate()
+  bm.activate(true)
+end
+
 --[[
   Creation of Keybinds for toggling and activating.
   @see `bindMenu.config`:toggle
@@ -256,6 +281,7 @@ end
 ]]
 Bind.create(bm.config.toggle, bm.toggle)
 Bind.create(bm.config.activate, bm.activate)
+Bind.create(bm.config.altActivate, bm.altActivate)
 
 --[[
   Load other scripts that can bind regions since the bindMenu is set up.
@@ -263,3 +289,29 @@ Bind.create(bm.config.activate, bm.activate)
 for _,v in ipairs(bm.config.scripts) do
  require(v)
 end
+
+----
+-- Example(s)
+----
+
+function coinExample(coins)
+  coins = type(coins) == "number" and coins or 100
+  bm.queue(function()
+    for i=1,coins do
+      world.spawnItem("money", {tech.aimPosition()[1] + math.random(0,10), tech.aimPosition()[2] + math.random(0,8)}, 10)
+    end
+  end)
+end
+
+-- Example of valid bind. See function `coinExample`.
+bm.bind(8,2,
+{
+  primary = {
+    enabled = true,
+    func = function() coinExample(20) end
+  },
+  alt = {
+    enabled = true,
+    func = coinExample
+  }
+})
